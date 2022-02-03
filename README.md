@@ -24,7 +24,7 @@ El template para la creacion del stack en CloudFormation se presenta en formato 
 
 ## Diagramas de infraestructura
 
-[Diagrama de Infraestructura para la aplicacion wbe](images/colppy-aws-infra-diagrama.drawio.png)
+[Diagrama de Infraestructura para la aplicacion web](images/colppy-aws-infra-diagrama.drawio.png)
 
 [Diagrama CI/CD](images/cicd-taskcat-pipeline.png)
 
