@@ -1,0 +1,140 @@
+AWSTemplateFormatVersion: "2022-02-22"
+Description: Template Colppy
+
+Parameters:
+  SecurityGroupDescription:
+    Description: Secgroup para instancia EC2 que contiene la app. 
+    Type: String
+  KeyName:
+    Description: Llaves para acceso a la instancia EC2
+    Type: 'AWS::EC2::KeyPair::KeyName'
+
+  LBSecurityGroup:
+    Description: Security Group para ALB
+    Type: AWS::EC2::SecurityGroup::Id
+
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+      - Key: Name
+        Value: VPC1
+
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: us-east-2a
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: public-sub-1
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: Public Route Table
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnetRouteTableAssociation1:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet1
+      RouteTableId: !Ref PublicRouteTable
+
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: App Load Balancer
+      Subnets: !Ref PublicSubnet1
+    SecurityGroups:
+        - !Ref LBSecurityGroup
+    Tags:
+        - Key: Name
+    Value: !Ref EnvironmentName
+
+  LoadBalancerListenerWS:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: 80
+      Protocol: HTTP
+    DefaultActions:
+        - Type: forward
+    TargetGroupArn: !Ref WSTargetGroup
+
+  WSTargetGroup: 
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub ${EnvironmentName}-WSTarget
+      VpcId: !Ref VPC
+      Port: 80
+      Protocol: HTTP 
+
+  WebApp:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: ami-0d5eff06f840b45e9
+      InstanceType: t2.micro
+    Tags: 
+      - Key: "Owner"
+        Value: "David H."
+      - Key: "Description"
+        Value: "Comprobacion tecnica Colppy"
+    UserData:
+        UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          yum update -y
+          yum install -y httpd
+          systemctl start httpd
+          systemctl enable httpd
+          #echo "<h1>Hola Nubox!</h1>" > /var/www/html/index.html
+
+  WebAppSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Join ["-", "Secgroup"]
+      GroupDescription: "Permitir trafico HTTP/HTTPS/SSH"
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+     Tags:
+     - Key: Name
+       Value: VPC Internet Gateway
+
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+            
+  
